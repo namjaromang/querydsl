@@ -1,12 +1,15 @@
 plugins {
     id 'org.springframework.boot' version '2.4.4'
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id "com.ewerk.gradle.plugins.querydsl" version "1.0.10"
     id 'java'
+    id "com.diffplug.spotless" version "5.0.0"
+    id "org.jetbrains.gradle.plugin.idea-ext" version "0.7"
 }
 
 group = 'com.study'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '11'
+sourceCompatibility = '14'
 
 configurations {
     compileOnly {
@@ -19,6 +22,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'com.querydsl:querydsl-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     compileOnly 'org.projectlombok:lombok'
@@ -30,3 +34,48 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+spotless {
+    java {
+        targetExclude("src/main/generated/**")
+        googleJavaFormat("1.7").aosp()
+
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        indentWithSpaces(4)
+        endWithNewline()
+
+        importOrder ''
+    }
+}
+
+task installGitHooks(type: Copy) {
+    from new File(rootProject.rootDir, 'pre-commit')
+    into { new File(rootProject.rootDir, '.git/hooks') }
+    fileMode 0777
+}
+
+build.dependsOn installGitHooks
+
+idea.project.settings {
+    taskTriggers {
+        afterSync tasks.getByName("installGitHooks")
+    }
+}
+
+//querydsl 추가 시작
+def querydslDir = "$buildDir/generated/querydsl"
+querydsl {
+    jpa = true
+    querydslSourcesDir = querydslDir
+}
+sourceSets {
+    main.java.srcDir querydslDir
+}
+configurations {
+    querydsl.extendsFrom compileClasspath
+}
+compileQuerydsl {
+    options.annotationProcessorPath = configurations.querydsl
+}
+//querydsl 추가 끝
